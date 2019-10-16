@@ -54,6 +54,7 @@ class AxiCLI:
         # originally this was a constant, but doing short lines with this method causes innacuracies
         # instead, we do this magic number steps_per_ms calculation which seems to pick good speeds per line length
         # STEPS_PER_MS = 5
+        dx = -dx # flip the horizontal orientation so that moving right is positive
         steps_per_ms = int(0.004 * max(abs(dx), abs(dy)) + 1)
         duration = max(abs(dx), abs(dy)) // steps_per_ms
         self.command('XM', duration, dx, dy)
