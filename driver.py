@@ -4,11 +4,18 @@ import time
 # set something up so that deleting or dereferencing the object forces close
 # we want this to really be the "with open() as f" type structure
 
+def point_sum(a, b):
+    return (a[0] + b[0], a[1] + b[1])
+
+def point_diff(a, b):
+    return point_sum(a, (-b[0], -b[1]))
+
 class AxiCLI:
     def __init__(self, microstepping=1):
         self.port_connector = self.fetch_port()
         self.axi = None
         self.open()
+        self.pos = (0, 0)
 
     # if axidraw is connected, this returns the port to connect to
     # if multiple axidraws are connected, this picks the first one - sorry!
@@ -31,6 +38,8 @@ class AxiCLI:
     def close(self):
         if not self.axi:
             raise RuntimeException('AxiDraw connection is already closed!')
+        self.pen_up()
+        self.move_to((0, 0))
         self.command('EM', 0, 0) # turn off motors
         self.axi.close()
 
@@ -50,12 +59,13 @@ class AxiCLI:
     def configure(self, MICROSTEPPING):
         self.command('EM', MICROSTEPPING, MICROSTEPPING)
 
-    def line(self, dx, dy):
-        # originally this was a constant, but doing short lines with this method causes innacuracies
-        # instead, we do this magic number steps_per_ms calculation which seems to pick good speeds per line length
-        # STEPS_PER_MS = 5
-        dx = -dx # flip the horizontal orientation so that moving right is positive
-        steps_per_ms = int(0.004 * max(abs(dx), abs(dy)) + 1)
-        duration = max(abs(dx), abs(dy)) // steps_per_ms
-        self.command('XM', duration, dx, dy)
+    def line(self, move):
+        STEPS_PER_MS = 5
+        duration = max(map(abs, move)) // STEPS_PER_MS
+        self.command('XM', duration, *move)
         time.sleep(duration / 1000)
+        self.pos = point_sum(self.pos, move)
+
+    def move_to(self, pos):
+        move = point_diff(pos, self.pos)
+        self.line(move)
