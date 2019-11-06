@@ -27,14 +27,27 @@ class Point:
             return Point(self.x * other, self.y * other)
         return Point(self.x * other.x, self.y * other.y)
 
-    def __neg__(self):
-        return -1 * self
+    def __truediv__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return Point(self.x / other, self.y / other)
+        return Point(self.x / other.x, self.y / other.y)
 
     __rmul__ = __mul__
     __radd__ = __add__
 
     def __rsub__(self, other):
         return -(self - other)
+
+    def __rtruediv__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return Point(other / self.x, other / self.y)
+        return Point(other.x / self.x, other.y / self.y)
+
+    def __neg__(self):
+        return -1 * self
+
+    def __eq__(self, other):
+        return self.x == other.x and self.y == other.y
 
     def __str__(self):
         return '({}, {})'.format(self.x, self.y)
@@ -96,12 +109,18 @@ def draw_path(axi, path):
     for point in points_to_connect[1:]:
         axi.move_to(point)
 
+# step size must be an integer
 def snap_path_to_grid(path, step_size=50):
     gridded_path = [step_size * round(i / step_size) for i in path]
-    to_grid = lambda x: step_size * round(1.0 * x / step_size)
-    new_path = [tuple(map(to_grid, point)) for point in path]
-    return new_path
+    gridded_shortened_path = [p for i, p in enumerate(gridded_path) if i == 0 or p != gridded_path[i-1]]
+    return gridded_shortened_path
 
+r = 500
+n = 8192
+c = Point(1000, 1000)
+circle_path = [r * Point(math.cos(2 * math.pi * i / n), math.sin(2 * math.pi * i / n)) + c for i in range(n+1)]
+gridded_circle_path = snap_path_to_grid(circle_path)
+print(len(gridded_circle_path))
 # axi = AxiCLI()
 # center = (4000, 6000)
 # # shaded_circle(axi, 500, center)
