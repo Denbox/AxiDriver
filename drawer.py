@@ -1,5 +1,5 @@
 from driver import AxiCLI
-import time, math
+import time, math, random
 
 # no need to generalize for n dimensions, because axidraw is 2d
 # maybe later if we decide to use something like paintbrushes, we can add a third dimension
@@ -49,84 +49,107 @@ class Point:
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
 
+    def __list__(self):
+        return [self.x, self.y]
+
+    def __tuple(self):
+        return (self.x, self.y)
+
     def __str__(self):
         return '({}, {})'.format(self.x, self.y)
 
     def __iter__(self):
         return iter([self.x, self.y])
 
-def circle(axi, radius, center = None):
-    if center is None:
-        center = axi.pos
-    n_points = 128 # there's a way to compute this well - just pick the number that minimizes the step size, keeping it above the smallest step
-    points = [(round(radius * math.cos(i / n_points * math.pi * 2) + center[0]), round(radius * math.sin(i / n_points * math.pi * 2) + center[1])) for i in range(n_points+1)]
-    axi.pen_up()
-    axi.move_to(points[0])
-    axi.pen_down()
-    for i in points[1:]:
-        axi.move_to(i)
+class Path:
+    def __init__(self, points):
+        self.path = points
+        if self.path == []:
+            raise ValueError('Empty Path!')
+        if not all(isinstance(i, Point) for i in self.path):
+            raise ValueError('Non Point Types in Path!')
 
-def spiral(axi, radius):
-    # this is just like circle, except we change radius and keep spinning for longer
-    # we stop when the function for radius reaches it's max
-    r_steps = 512 # make this four revolutions
-    n_revs = 16
-    points = [(round(radius * (i / r_steps) * math.cos(i * n_revs / r_steps * math.pi * 2) + axi.pos[0]), round(radius * (i / r_steps) * math.sin(i * n_revs / r_steps * math.pi * 2) + axi.pos[1])) for i in range(r_steps)]
-    axi.pen_up()
-    axi.move_to(points[0])
-    axi.pen_down()
-    for i in points[1:]:
-        axi.move_to(i)
+    def __mul__(self, scalar):
+        return Path([scalar * point for point in self.path])
 
-def arc(axi, radius, theta):
-    n_points = 2048
-    points = [(round(radius * math.cos(i / n_points * math.pi * 2) + axi.pos[0]), round(radius * math.sin(i / n_points * math.pi * 2) + axi.pos[1])) for i in range(round(n_points * theta / math.pi / 2))]
-    print(len(points))
-    axi.pen_up()
-    axi.move_to(points[0])
-    axi.pen_down()
-    for i in points[1:]:
-        axi.move_to(i)
+    __rmul__ = __mul__
 
-def shaded_circle(axi, max_radius, center, step=40):
-    if center is None:
-        center = axi.pos
-    axi.pen_up()
-    axi.move_to(center)
-    for radius in range(step*10, max_radius, step):
-        n_points = 256 # there's a way to compute this well - just pick the number that minimizes the step size, keeping it above the smallest step
-        points = [(round(radius * math.cos(i / n_points * math.pi * 2) + center[0]), round(radius * math.sin(i / n_points * math.pi * 2) + center[1])) for i in range(n_points+1)]
-        axi.move_to(points[0])
+    def __truediv__(self, scalar):
+        return Path([point / scalar for point in self.path])
+
+    def __add__(self, other):
+        # we want to shift our path
+        if isinstance(other, int) or isinstance(other, float):
+            return Path([other + point for point in self.path])
+
+        # otherwise, we want to join two paths
+        return Path(self.path + other.path)
+
+    def __radd__(self, other):
+        if isinstance(other, int) or isinstance(other, float):
+            return Path([other + point for point in self.path])
+        return Path(other.path + self.path)
+
+    def __str__(self):
+        # return '\n'.join([str(i) for i in self.path])
+        return '\n'.join(map(str, self.path))
+
+    def __round__(self):
+        return Path([round(point) for point in self.path])
+
+    def snap_to_grid(self, grid_size=8):
+        self.path = grid_size * round(self / grid_size)
+        # return Path(grid_size * round(self / grid_size))
+
+    def __getitem__(self, key):
+        return self.path[key]
+
+    # remove duplicate elements in path
+    def prune(self):
+        # start with first element
+        # only add new elements if they differ from the most recent one
+        new_path = [self.path[0]]
+        for point in self.path[1:]:
+            if point != new_path[-1]:
+                new_path.append(Point(*point))
+        self.path = new_path
+
+    def shuffle(self, closed=True):
+        random.shuffle(self.path)
+        if closed:
+            print(self.path[0])
+            self.path.append(self.path[0])
+
+    def draw(self, axi):
+        self.snap_to_grid()
+        self.prune()
+        # self.path = self.prune(self.snap_to_grid())
+        axi.pen_up()
+        axi.move_to(tuple([*self.path[0]]))
         axi.pen_down()
-        for i in points[1:]:
-            axi.move_to(i)
-    axi.pen_up()
+        for point in self.path[1:]:
+            axi.move_to(tuple([*point]))
 
-def draw_path(axi, path):
-    axi.pen_up()
-    axi.move_to(points_to_connect[0])
-    axi.pen_down()
-    for point in points_to_connect[1:]:
-        axi.move_to(point)
+def circle(n=None):
+    if n is None:
+        n = 10000
+    points = [Point(math.cos(2 * math.pi * i / n), math.sin(2 * math.pi * i / n)) for i in range(n+1)]
+    return Path(points)
 
-# step size must be an integer
-def snap_path_to_grid(path, step_size=50):
-    gridded_path = [step_size * round(i / step_size) for i in path]
-    gridded_shortened_path = [p for i, p in enumerate(gridded_path) if i == 0 or p != gridded_path[i-1]]
-    return gridded_shortened_path
+def random_circle_interior_path(radius, n=None):
+    if n is None:
+        n = radius // 16
+    path = circle_path(radius, n=n)
 
-r = 500
-n = 8192
-c = Point(1000, 1000)
-circle_path = [r * Point(math.cos(2 * math.pi * i / n), math.sin(2 * math.pi * i / n)) + c for i in range(n+1)]
-gridded_circle_path = snap_path_to_grid(circle_path)
-print(len(gridded_circle_path))
-# axi = AxiCLI()
-# center = (4000, 6000)
-# # shaded_circle(axi, 500, center)
-# # spiral(axi, 2000)
-# # arc(axi, 3000, math.pi / 2)
-# axi.pen_up()
-# circle(axi, 1500, center)
-# # axi.pos=(4000,4000)
-# axi.close()
+def random_filled_circle_paths(radius):
+    n = int(radius / 16)
+    outer = radius * circle(n)
+    inner = radius * circle(n)
+    inner.shuffle()
+    return outer, inner
+
+paths = random_filled_circle_paths(1000)
+axi = AxiCLI()
+for path in paths:
+    path.draw(axi)
+axi.close()

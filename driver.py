@@ -38,6 +38,7 @@ class AxiCLI:
     def close(self):
         if not self.axi:
             raise RuntimeException('AxiDraw connection is already closed!')
+        time.sleep(0.1)
         self.pen_up()
         self.move_to((0, 0))
         self.command('EM', 0, 0) # turn off motors
@@ -60,7 +61,7 @@ class AxiCLI:
         self.command('EM', MICROSTEPPING, MICROSTEPPING)
 
     def line(self, move):
-        STEPS_PER_MS = 5
+        STEPS_PER_MS = 2
         duration = max(map(abs, move)) // STEPS_PER_MS
         self.command('XM', duration, *move)
         time.sleep(duration / 1000)
