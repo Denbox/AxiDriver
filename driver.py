@@ -54,27 +54,31 @@ class AxiCLI:
     def configure(self, MICROSTEPPING):
         self.command('EM', MICROSTEPPING, MICROSTEPPING)
 
-    def line(self, move):
-        STEPS_PER_MS = 2
-        duration = max(map(abs, move)) // STEPS_PER_MS
+    def line(self, move, steps_per_ms=2):
+        duration = max(map(abs, move)) // steps_per_ms
         self.command('XM', duration, *move)
         time.sleep(duration / 1000)
         self.pos += move
-        # self.pos = point_sum(self.pos, move)
 
-    def move_to(self, pos):
-        # move = point_diff(pos, self.pos)
+    def move_to(self, pos, steps_per_ms=2):
         move = pos - self.pos
-        self.line(move)
+        self.line(move, steps_per_ms=steps_per_ms)
 
-    def draw(self, path):
+    def draw(self, path, in_place = True, steps_per_ms = 2):
+        # in place means we draw the path from our current position
+        # rather than the absolute coordinate information from path
+        start = self.pos
+        if in_place:
+            path += self.pos
         path.snap_to_grid()
         path.prune()
         self.pen_up()
-        self.move_to(path[0])
+        self.move_to(path[0], steps_per_ms=steps_per_ms)
         self.pen_down()
         for point in path[1:]:
-            self.move_to(point)
+            self.move_to(point, steps_per_ms=steps_per_ms)
+        self.pen_up()
+        self.move_to(start, steps_per_ms=steps_per_ms)
 
 
 class Point:
@@ -165,7 +169,6 @@ class Path:
         return Path(other.path + self.path)
 
     def __str__(self):
-        # return '\n'.join([str(i) for i in self.path])
         return '\n'.join(map(str, self.path))
 
     def __round__(self):
@@ -173,7 +176,6 @@ class Path:
 
     def snap_to_grid(self, grid_size=8):
         self.path = grid_size * round(self / grid_size)
-        # return Path(grid_size * round(self / grid_size))
 
     def __getitem__(self, key):
         return self.path[key]

@@ -21,8 +21,8 @@ def random_filled_circle_paths(radius):
     inner.shuffle()
     return outer, inner
 
-paths = random_filled_circle_paths(400)
-axi = AxiCLI()
-for path in paths:
-    axi.draw(path)
-axi.close()
+# paths = random_filled_circle_paths(400)
+# axi = AxiCLI()
+# for path in paths:
+#     axi.draw(path)
+# axi.close()
